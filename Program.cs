@@ -71,7 +71,7 @@ public static class Programm
         Log("Theachers id got\t" + DateTime.Now);
 
         List<Task> tasks = new();
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 8; i++)
         {
             tasks.Add(Task.Run(() =>
             {
@@ -88,8 +88,8 @@ public static class Programm
                     }
                     catch (Exception e)
                     {
-                        _wrongId.Enqueue(prepod.id);
-                        Log("Failed id: " + prepod.id + " \n!!!!!id was not parsed!!!!!\n\twith: " + e.Message + "\t" + DateTime.Now);
+                        _wrongId.Enqueue(e.Message + " id: " + prepod.id);
+                        Log("Failed id: " + prepod.id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t" + DateTime.Now);
                         continue;
                     }
 
@@ -138,26 +138,24 @@ public static class Programm
         TryAgain:
             HttpClient client = new();
             var message = new HttpRequestMessage(HttpMethod.Get, $"https://pro.guap.ru/getuserprofile/{id}");
-            message.Headers.Add("Cookie", "PHPSESSID=sstk9d5dio1roe6tgftag0b5qe");
+            message.Headers.Add("Cookie", "PHPSESSID=cospd3rpvteep8spcodr3b5eje");
             var reply = client.Send(message);
             
             switch (reply.StatusCode)
             {
                 case System.Net.HttpStatusCode.Forbidden:
-                    _wrongId.Enqueue(id);
+                    _wrongId.Enqueue("Forbidden " + id);
                     return;
                 case System.Net.HttpStatusCode.OK:
                     break;
                 default:
                     goto TryAgain;
             }
-            //var stream = reply.Content.ReadAsStream();
 
             var str = reply.Content.ReadAsStringAsync().Result;
             var json = JsonNode.Parse(str)!["user"]!.AsObject();
 
             var value = JsonSerializer.Deserialize<Prepod>(json);
-            //dynamic value = JsonSerializer.Deserialize<dynamic>(json)!;
 
 
             var works = json["works"]!.AsArray();
