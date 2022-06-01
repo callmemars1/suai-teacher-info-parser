@@ -19,6 +19,7 @@ public struct works
 
     public string pluralist { get; set; }
 }
+
 public struct Prepod
 {
     public string id { get; set; }
@@ -37,11 +38,15 @@ public struct Prepod
 
     public string phone { get; set; }
 
+    public string degree_id { get; set; }
+
     public string degree_name { get; set; }
 
     public string degree_description { get; set; }
 
     public string at_name { get; set; }
+
+    public string at_id { get; set; }
 
     public works[] works { get; set; }
 }
@@ -81,13 +86,20 @@ public static class Programm
                     }
                     catch (TaskCanceledException ex)
                     {
-                        Console.WriteLine(ex);
+                        Console.WriteLine(ex + "\t" + prepod.id);
                         ans.Enqueue(prepod);
                     }
                     catch (Exception e)
                     {
+                        if (e.Message == "Forbidden")
+                        {
+                            Log("Task: " + Task.CurrentId + "\twith id: " + prepod.id + " forbidden\t" + DateTime.Now);
+                        }
+                        else
+                        {
+                            Log("Failed id: " + prepod.id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t" + DateTime.Now);                         
+                        }
                         _wrongId.Enqueue(e.Message + " id: " + prepod.id);
-                        Log("Failed id: " + prepod.id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t" + DateTime.Now);
                         continue;
                     }
 
@@ -127,6 +139,13 @@ public static class Programm
             logWriter.WriteLine(item);
         }
         logWriter.Close();
+
+
+
+        StreamWriter testWriter = new("testPrepods.json", false);
+        testWriter.WriteLine(JsonSerializer.Serialize(_prepods.ToArray()));
+        testWriter.Close();
+
     }
 
     public static void GetInfo(string id)
@@ -143,7 +162,7 @@ public static class Programm
             {
                 case System.Net.HttpStatusCode.Forbidden:
                     _wrongId.Enqueue("Forbidden " + id);
-                    return;
+                    throw new Exception("Forbidden");
                 case System.Net.HttpStatusCode.OK:
                     break;
                 default:
