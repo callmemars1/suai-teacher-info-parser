@@ -1,10 +1,9 @@
 ﻿using Npgsql;
 using System.Text.Json;
 using main;
-using System.Text;
 
 string myDB = "User Id=postgres;Password=1;host=localhost;database=TeacherInfo;";
-string hisDB = "User Id=teacher_info_service;Password=JFDSdkfkd6375sojkfodsjkDF5434246;host=178.252.96.108:5431;database=teacher_info;";
+string hisDB = "";
 
 StreamReader reader = new(@"E:\Kars\NewParser\NewParser\bin\Debug\net6.0\testPrepods.json");
 var json = reader.ReadToEnd();
@@ -241,7 +240,7 @@ foreach (var item in unparsed)
 }
 #endregion
 
-#region MyRegion
+#region Coccectors
 cmd.CommandText = "delete from teachers_academic_degrees";
 cmd.ExecuteNonQuery();
 
