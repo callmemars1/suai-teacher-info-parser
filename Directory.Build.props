@@ -1,0 +1,5 @@
+﻿<Project>
+    <PropertyGroup>
+        <MSBUildProjectExtensionsPath>..\obj\</MSBUildProjectExtensionsPath>
+    </PropertyGroup>
+</Project>

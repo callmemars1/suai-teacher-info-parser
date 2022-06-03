@@ -33,7 +33,7 @@ public static class Programm
 
     private static void SetTimer()
     {
-        StreamReader reader = new("timer\\info.txt");
+        StreamReader reader = new("info.txt");
         reader.Close();
         _aTimer = new System.Timers.Timer(_time);
         _aTimer.Elapsed += ATimer_Elapsed;
@@ -43,18 +43,17 @@ public static class Programm
 
     private static void TimerSetNow()
     {
-        StreamWriter writer = new("timer\\info.txt", false);
+        StreamWriter writer = new("info.txt", false);
         writer.WriteLine(JsonSerializer.Serialize(DateTime.Now));
         writer.Close();
     }
 
     private static DateTime TimerGetTime()
     {
-        if (Directory.Exists("timer"))
-        {
+
             try
             {
-                StreamReader reader = new("timer\\info.txt");
+                StreamReader reader = new("info.txt");
                 var json = reader.ReadLine();
                 var time = JsonSerializer.Deserialize<DateTime>(json);
                 reader.Close();
@@ -64,12 +63,7 @@ public static class Programm
             {
                 return DateTime.MinValue;
             }
-        }
-        else
-        {
-            Directory.CreateDirectory("timer");
-            return DateTime.MinValue;
-        }
+
     }
 
     private static void ATimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
