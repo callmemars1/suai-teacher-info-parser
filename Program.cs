@@ -1,151 +1,197 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net;
+using NLog;
+using NewParser.Person;
+using NewParser.Works;
 
-namespace main;
-public struct works
-{
-    public string tid { get; set; }
 
-    public string depname { get; set; }
-
-    public string faculty { get; set; }
-
-    public string post { get; set; }
-
-    public string depname_short { get; set; }
-
-    public string faculty_short { get; set; }
-
-    public string pluralist { get; set; }
-}
-
-public struct Prepod
-{
-    public string id { get; set; }
-
-    public string username { get; set; }
-
-    public string lastname { get; set; }
-
-    public string firstname { get; set; }
-
-    public string middlename { get; set; }
-
-    public string auditorium { get; set; }
-
-    public string email { get; set; }
-
-    public string phone { get; set; }
-
-    public string degree_id { get; set; }
-
-    public string degree_name { get; set; }
-
-    public string degree_description { get; set; }
-
-    public string at_name { get; set; }
-
-    public string at_id { get; set; }
-
-    public works[] works { get; set; }
-}
+namespace Main;
 
 public static class Programm
 {
-    static ConcurrentQueue<Prepod> _prepods = new();
+    static ConcurrentQueue<Person> _prepods = new();
 
     static ConcurrentQueue<string> _wrongId = new();
 
-    static ConcurrentQueue<string> _logs = new();
+    static HttpClient _client = new();
+
+    static string _cookie = "gu3anmbje0b27m93oud26u3iqt";
+
+    private static System.Timers.Timer _aTimer = null;
+
+    private static Logger _logger = LogManager.GetLogger("logfileRules");
+
+    private static ulong _time = 2 * 1000;
+
 
     static void Log(string text)
     {
-        Console.WriteLine(text);
-        _logs.Enqueue(text);
+        _logger.Info(text);
     }
 
-    static void Main(string[] args)
+    private static void SetTimer()
     {
-        Log("Starting getting theachers\t" + DateTime.Now);
+        StreamReader reader = new("timer\\info.txt");
+        reader.Close();
+        _aTimer = new System.Timers.Timer(_time);
+        _aTimer.Elapsed += ATimer_Elapsed;
+        _aTimer.AutoReset = true;
+        _aTimer.Enabled = true;
+    }
 
-        var ans = GetPrep();
-
-        Log("Theachers id got\t" + DateTime.Now);
-
-        List<Task> tasks = new();
-        for (int i = 0; i < 8; i++)
-        {
-            tasks.Add(Task.Run(() =>
-            {
-                while (ans.TryDequeue(out var prepod))
-                {                   
-                    try
-                    {
-                        GetInfo(prepod.id);
-                    }
-                    catch (TaskCanceledException ex)
-                    {
-                        Console.WriteLine(ex + "\t" + prepod.id);
-                        ans.Enqueue(prepod);
-                    }
-                    catch (Exception e)
-                    {
-                        if (e.Message == "Forbidden")
-                        {
-                            Log("Task: " + Task.CurrentId + "\twith id: " + prepod.id + " forbidden\t" + DateTime.Now);
-                        }
-                        else
-                        {
-                            Log("Failed id: " + prepod.id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t" + DateTime.Now);                         
-                        }
-                        _wrongId.Enqueue(e.Message + " id: " + prepod.id);
-                        continue;
-                    }
-
-                    Log("Task: " + Task.CurrentId + " finished\twith id: " + prepod.id + "\t" + DateTime.Now);
-                    Log("Left: " + ans.Count);
-                }
-            }));
-        }
-        Task.WaitAll(tasks.ToArray());
-
-        Log("All theachers got\t" + "total: " + _prepods.Count + "\t" + DateTime.Now);
-
-        StreamWriter writer = new StreamWriter("teachers.json", true);
-        writer.WriteLine("\n==========================\n" + DateTime.Now.ToString() + "\n==========================\n");
-        foreach (var item in _prepods)
-        {
-            writer.WriteLine(JsonSerializer.Serialize(item));
-        }
-
+    private static void TimerSetNow()
+    {
+        StreamWriter writer = new("timer\\info.txt", false);
+        writer.WriteLine(JsonSerializer.Serialize(DateTime.Now));
         writer.Close();
+    }
 
-        StreamWriter writer2 = new("wrong.json", true);
-        writer2.WriteLine("\n==========================\n" + DateTime.Now.ToString() + "\n==========================\n");
-        foreach (var item in _wrongId)
+    private static DateTime TimerGetTime()
+    {
+        if (Directory.Exists("timer"))
         {
-            writer2.WriteLine(item);
+            try
+            {
+                StreamReader reader = new("timer\\info.txt");
+                var json = reader.ReadLine();
+                var time = JsonSerializer.Deserialize<DateTime>(json);
+                reader.Close();
+                return time;
+            }
+            catch (FileNotFoundException)
+            {
+                return DateTime.MinValue;
+            }
         }
-
-        writer2.Close();
-        Log("All info saved\t" + DateTime.Now);
-
-
-        StreamWriter logWriter = new("log.txt", true);
-        logWriter.WriteLine("\n==========================\n" + DateTime.Now.ToString() + "\n==========================\n");
-        foreach (var item in _logs)
+        else
         {
-            logWriter.WriteLine(item);
+            Directory.CreateDirectory("timer");
+            return DateTime.MinValue;
         }
-        logWriter.Close();
+    }
 
+    private static void ATimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        _aTimer.Stop();
+        var time = TimerGetTime();
+        if ((ulong)(DateTime.Now - time).TotalMilliseconds >= _time)
+        {
+            if (Manager())
+            {
+                Log($"Everything is ok, next check in {_time / 3600} hours");
+                TimerGetTime();
+                Filler.Filler.Fill();
+            }
+            else
+            {
+                Log("Something went wrong. Trying Againg in 6 min");
+                Thread.Sleep(360000);
+                if (Manager())
+                {
+                    Log($"Everything is ok, next check in {_time / 3600} hours");
+                    TimerGetTime();
+                    Filler.Filler.Fill();
+                }
+                else
+                {
+                    Log($"Something went wrong. Trying Againg in {_time / 3600} hours");
+                    TimerSetNow();
+                }
+            }
+        }
+        _aTimer.Start();
+    }
 
+    static bool Manager()
+    {
+        try
+        {
+            Log("Starting getting theachers\t");
 
-        StreamWriter testWriter = new("testPrepods.json", false);
-        testWriter.WriteLine(JsonSerializer.Serialize(_prepods.ToArray()));
-        testWriter.Close();
+            var ans = GetPrep();
 
+            Log("Theachers id got\t");
+
+            List<Task> tasks = new();
+            for (int i = 0; i < 8; i++)
+            {
+                tasks.Add(Task.Run(() =>
+                {
+                    while (ans.TryDequeue(out var id))
+                    {
+                        try
+                        {
+                            GetInfo(id);
+                        }
+                        catch (TaskCanceledException ex)
+                        {
+                            Console.WriteLine(ex + "\t" + id);
+                            ans.Enqueue(id);
+                        }
+                        catch (Exception e)
+                        {
+                            if (e.Message == "Forbidden")
+                            {
+                                Log("Task: " + Task.CurrentId + "\twith id: " + id + " forbidden\t");
+                            }
+                            else
+                            {
+                                Log("Failed id: " + id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t");
+                            }
+                            _wrongId.Enqueue(e.Message + " id: " + id);
+                            continue;
+                        }
+
+                        Log("Task: " + Task.CurrentId + " finished\twith id: " + id + "\t");
+                        Log("Left: " + ans.Count);
+                    }
+                }));
+            }
+            Task.WaitAll(tasks.ToArray());
+
+            Log("All theachers got\t" + "total: " + _prepods.Count + "\t");
+
+            try
+            {
+                SaveData();
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Saving data exception\n" + e.Message);
+            }
+            return true;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private static void SaveData()
+    {
+        try
+        {
+            StreamWriter writer = new($"teachers.json", false);
+            writer.WriteLine(JsonSerializer.Serialize(_prepods.ToArray()));
+            writer.Close();
+            Log("teachers info saved\t");
+
+            writer = new("wrong.json", true);
+            writer.WriteLine("\n==========================\n" + DateTime.Now.ToString() + "\n==========================\n");
+            writer.WriteLine(JsonSerializer.Serialize(_wrongId));
+            writer.Close();
+            Log("wrong id info saved\t");
+
+            TimerSetNow();
+        }
+        catch (Exception)
+        {
+            Log("Info saving error\t");
+            throw;
+        }
+       
     }
 
     public static void GetInfo(string id)
@@ -153,17 +199,16 @@ public static class Programm
         try
         {
         TryAgain:
-            HttpClient client = new();
+            
             var message = new HttpRequestMessage(HttpMethod.Get, $"https://pro.guap.ru/getuserprofile/{id}");
-            message.Headers.Add("Cookie", "PHPSESSID=cospd3rpvteep8spcodr3b5eje");
-            var reply = client.Send(message);
+            message.Headers.Add("Cookie", $"PHPSESSID={_cookie}");
+            var reply = _client.Send(message);
             
             switch (reply.StatusCode)
             {
-                case System.Net.HttpStatusCode.Forbidden:
-                    _wrongId.Enqueue("Forbidden " + id);
+                case HttpStatusCode.Forbidden:
                     throw new Exception("Forbidden");
-                case System.Net.HttpStatusCode.OK:
+                case HttpStatusCode.OK:
                     break;
                 default:
                     goto TryAgain;
@@ -172,7 +217,7 @@ public static class Programm
             var str = reply.Content.ReadAsStringAsync().Result;
             var json = JsonNode.Parse(str)!["user"]!.AsObject();
 
-            var value = JsonSerializer.Deserialize<Prepod>(json);
+            var value = JsonSerializer.Deserialize<Person>(json);
 
 
             var works = json["works"]!.AsArray();
@@ -192,9 +237,9 @@ public static class Programm
         }
     }
 
-    public static ConcurrentQueue<Prepod> GetPrep()
+    public static ConcurrentQueue<string> GetPrep()
     {
-        ConcurrentQueue<Prepod> prepods = new();
+        ConcurrentQueue<string> prepods = new();
         HttpClient client = new();
         var message = new HttpRequestMessage(HttpMethod.Post, "https://pro.guap.ru/getDictionariesAndPeople/");
         var reply = client.Send(message);
@@ -203,8 +248,22 @@ public static class Programm
         var arr = node!["dictionaries"]!["people"]!.AsArray();
         foreach (var item in arr)
         {
-            prepods.Enqueue(new Prepod() { id = item!["id"]!.ToString(), username = item["text"]!.ToString() });
+            prepods.Enqueue(item!["id"]!.ToString());
         }
         return prepods;
+    }
+
+    static void Main(string[] args)
+    {
+        _time = Convert.ToUInt64(Environment.GetEnvironmentVariable("TIME_SPAN") ?? throw new ArgumentException("NO TIME_SPAN")) * 1000;
+
+        _cookie = Environment.GetEnvironmentVariable("COOKIE") ?? throw new ArgumentException("NO COOKIE");
+
+        ServicePointManager.DefaultConnectionLimit = 10;
+
+
+        SetTimer();
+
+        while (true) { }
     }
 }
