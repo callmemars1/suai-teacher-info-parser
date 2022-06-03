@@ -26,9 +26,16 @@ public static class Programm
     private static ulong _time = 2 * 1000;
 
 
-    static void Log(string text)
+    static void Log(string text, bool inFile = false)
     {
-        _logger.Info(text);
+        if (inFile)
+        {
+            _logger.Trace(text);
+        }
+        else
+        {
+            _logger.Info(text);
+        }
     }
 
     private static void SetTimer()
@@ -129,18 +136,18 @@ public static class Programm
                         {
                             if (e.Message == "Forbidden")
                             {
-                                Log("Task: " + Task.CurrentId + "\twith id: " + id + " forbidden\t");
+                                Log("Task: " + Task.CurrentId + "\twith id: " + id + " forbidden\tLeft " + ans.Count, true);
                             }
                             else
                             {
-                                Log("Failed id: " + id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\t");
+                                Log("Failed id: " + id + " \n!!!!!id was not parsed!!!!!\nwith: " + e.Message + "\tLeft " + ans.Count, true);
                             }
                             _wrongId.Enqueue(e.Message + " id: " + id);
                             continue;
                         }
 
-                        Log("Task: " + Task.CurrentId + " finished\twith id: " + id + "\t");
-                        Log("Left: " + ans.Count);
+                        Log("Task: " + Task.CurrentId + " finished\twith id: " + id + "\tLeft " + ans.Count, true);
+
                     }
                 }));
             }
@@ -171,13 +178,11 @@ public static class Programm
             StreamWriter writer = new($"teachers.json", false);
             writer.WriteLine(JsonSerializer.Serialize(_prepods.ToArray()));
             writer.Close();
-            Log("teachers info saved\t");
-
             writer = new("wrong.json", true);
             writer.WriteLine("\n==========================\n" + DateTime.Now.ToString() + "\n==========================\n");
             writer.WriteLine(JsonSerializer.Serialize(_wrongId));
             writer.Close();
-            Log("wrong id info saved\t");
+            Log("All info saved\t");
 
             TimerSetNow();
         }
