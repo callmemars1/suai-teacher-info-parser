@@ -33,8 +33,6 @@ public static class Programm
 
     private static void SetTimer()
     {
-        StreamReader reader = new("info.txt");
-        reader.Close();
         _aTimer = new System.Timers.Timer(_time);
         _aTimer.Elapsed += ATimer_Elapsed;
         _aTimer.AutoReset = true;
@@ -61,12 +59,15 @@ public static class Programm
             }
             catch (FileNotFoundException)
             {
+                StreamWriter writer = new("info.txt");
+                writer.WriteLine(JsonSerializer.Serialize(DateTime.MinValue));
+                writer.Close();
                 return DateTime.MinValue;
             }
 
     }
 
-    private static void ATimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    private static void ATimer_Elapsed(object? sender, object e)
     {
         _aTimer.Stop();
         var time = TimerGetTime();
@@ -254,9 +255,8 @@ public static class Programm
         _cookie = Environment.GetEnvironmentVariable("COOKIE") ?? throw new ArgumentException("NO COOKIE");
 
         ServicePointManager.DefaultConnectionLimit = 10;
-
-
         SetTimer();
+        ATimer_Elapsed(new object(), new object());
 
         while (true) { }
     }
